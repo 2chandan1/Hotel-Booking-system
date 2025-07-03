@@ -1,8 +1,6 @@
 <?php
 
 namespace App\Models;
-// use Illuminate\Database\Eloquent\Model;
-// use MongoDB\Laravel\Eloquent\DocumentModel;
 use MongoDB\Laravel\Eloquent\Model as EloquentModel;
 class Hotel extends EloquentModel
 {
