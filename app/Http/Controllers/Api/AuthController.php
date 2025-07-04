@@ -9,9 +9,10 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 class AuthController extends Controller{
     public function register(Request $request){
+        try {
         $validator= Validator::make($request->all(),[
             'name'=>'required| string|max:255',
-            'email'=>'required| string|email|max:255',
+             'email'    => 'required|string|email|max:255|unique:email', 
             'password'=>'required|string|min:8',
             'phone'=>'required|string|max:15',
             'role'=>'in:customer,hotel_manager,admin'
@@ -22,6 +23,12 @@ class AuthController extends Controller{
                 'message'=>'Validation Error',
             ],422);
             
+        }
+         if (User::where('email', $request->email)->exists()) {
+            return response()->json([
+                'error'   => ['email' => ['The email has already been taken.']],
+                'message' => 'Validation Error',
+            ], 422);
         }
         $user=User::create([
             'name'=>$request->name,
@@ -38,6 +45,12 @@ class AuthController extends Controller{
             'token'=>$token,
             'message'=>'User registered successfully',    
         ],201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'An error occurred while registering the user.',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function login(Request $request){
@@ -67,7 +80,7 @@ class AuthController extends Controller{
         ]);
     }
     public function logout(Request $request){
-        $user=request->user()->currentAccessToken()->delete();
+        $user=$request->user()->currentAccessToken()->delete();
         return response()->json([
             'message'=>'User logged out successfully',
             'user'=>$user

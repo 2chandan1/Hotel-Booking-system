@@ -102,7 +102,6 @@ class HotelController extends Controller
             ], 500);
         }
     }
-
     public function update(Request $request, string $id)
     {
         try {
