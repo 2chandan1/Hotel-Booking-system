@@ -49,6 +49,16 @@ class BookingController extends Controller
             ], 500);
         }
     }
+    public function getBookingsByUser($userId)
+    {
+        try {
+            $bookings = Booking::where('user_id', $userId)->with(['hotel', 'room'])->get();
+            return response()->json(['data' => $bookings]);
+        } catch (Exception $e) {
+            Log::error('Booking get bookings by user error: ' . $e->getMessage());
+            return response()->json(['message' => 'An error occurred while retrieving bookings', 'error' => $e->getMessage()], 500);
+        }
+    }
     public function store(Request $request)
     {
         try {
@@ -73,10 +83,7 @@ class BookingController extends Controller
             $isRoomAvailable = Room::where('_id', $validated['room_id'])
                 ->where('hotel_id', $validated['hotel_id'])
                 ->where('is_available', true)
-                ->where(function ($query) use ($validated) {
-                    $query->where('check_in_date', '>', $validated['check_out_date'])
-                        ->orWhere('check_out_date', '<', $validated['check_in_date']);
-                })->exists();
+                ->exists();
 
             if (!$isRoomAvailable) {
                 return response()->json([
@@ -109,6 +116,78 @@ class BookingController extends Controller
             Log::error('Booking store error: ' . $e->getMessage());
             return response()->json([
                 'message' => 'An error occurred while creating the booking',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    public function update(Request $request, $id)
+    {
+        try {
+            // Find the booking
+            $booking = Booking::findOrFail($id);
+
+            // Validate input
+            $validated = $request->validate([
+                'check_in_date' => 'sometimes|date|after_or_equal:today',
+                'check_out_date' => 'sometimes|date|after:check_in_date',
+                'guests' => 'sometimes|integer|min:1|max:10',
+                'total_amount' => 'sometimes|numeric|min:0',
+                'currency' => 'sometimes|string|size:3',
+                'payment_method' => 'sometimes|string|in:credit_card,debit_card,paypal,bank_transfer,cash',
+                'special_requests' => 'sometimes|string|max:500',
+                'guest_details' => 'sometimes|array',
+                'guest_details.name' => 'sometimes|string|max:255',
+                'guest_details.email' => 'sometimes|email|max:255',
+                'guest_details.phone' => 'sometimes|string|max:20',
+                'guest_details.address' => 'sometimes|string|max:500',
+                'room_id' => 'sometimes|string|exists:rooms,_id',
+                'hotel_id' => 'sometimes|string|exists:hotels,_id',
+                'status' => 'sometimes|string|in:pending,confirmed,cancelled,checked-in,checked-out',
+            ]);
+
+            // If room_id or hotel_id is being changed, check room availability
+            if (isset($validated['room_id']) && isset($validated['hotel_id'])) {
+                $isRoomAvailable = Room::where('_id', $validated['room_id'])
+                    ->where('hotel_id', $validated['hotel_id'])
+                    ->where('is_available', true)
+                    ->exists();
+
+                if (!$isRoomAvailable) {
+                    return response()->json([
+                        'message' => 'Room is not available for the selected dates',
+                        'available' => false
+                    ], 409);
+                }
+            }
+
+            // If dates are being changed, recalculate nights
+            if (isset($validated['check_in_date']) && isset($validated['check_out_date'])) {
+                $checkIn = Carbon::parse($validated['check_in_date']);
+                $checkOut = Carbon::parse($validated['check_out_date']);
+                $validated['nights'] = $checkIn->diffInDays($checkOut);
+            }
+
+            // Update booking
+            $booking->update($validated);
+
+            // If room_id is changed, update room availability
+            if (isset($validated['room_id'])) {
+                // Set previous room as available
+                Room::where('_id', $booking->room_id)->update(['is_available' => true]);
+                // Set new room as unavailable
+                Room::where('_id', $validated['room_id'])->update(['is_available' => false]);
+            }
+
+            $booking->load(['hotel', 'room']);
+
+            return response()->json([
+                'message' => 'Booking updated successfully',
+                'data' => $booking
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Booking update error: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'An error occurred while updating the booking',
                 'error' => $e->getMessage()
             ], 500);
         }

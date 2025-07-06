@@ -22,9 +22,6 @@ class HotelController extends Controller
             $query = Hotel::query();
             $perPage = $request->get('per_page', 15);
             $perPage = min($perPage, 100);
-            // if ($request->has('is_active')) {
-            //     $query->where('is_active', $request->boolean('is_active'));
-            // }
             $query->orderBy('created_at', 'desc');
             $hotels = $query->paginate($perPage);
             return response()->json([
@@ -45,12 +42,24 @@ class HotelController extends Controller
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
                 'description' => 'required|string|max:1000',
-                'location' => 'required|string|max:255',
+                'location.address' => 'required|string|max:255',
+                'location.city' => 'required|string|max:100',
+                'location.state' => 'required|string|max:100',
+                'location.country' => 'required|string|max:100',
+                'location.postal_code' => 'required|string|max:20',
                 'rating' => 'required|numeric|min:0|max:5',
                 'phone' => 'required|string|max:20',
                 'email' => 'required|email|max:255',
+                'Website' => 'nullable|url|max:255',
+                'total_rooms' => 'required|integer|min:1',
+                'establishment_year' => 'nullable|integer|min:1800|max:' . date('Y'),
+                'policies' => 'required|array',
+                'policies.check_in_time' => 'required|string',
+                'policies.check_out_time' => 'required|string',
+                'policies.cancellation_policy' => 'required|string|max:500',
+                'policies.pet_policy' => 'nullable|string|max:200',
+                'policies.smoking_policy' => 'required|string|max:200',
                 'base_price' => 'required|numeric|min:0',
-                'currency' => 'required|string|size:3',
                 'amenities' => 'required|array',
                 'amenities.*' => 'string|max:100',
                 'images' => 'required|array',
@@ -119,7 +128,7 @@ class HotelController extends Controller
                 'phone' => 'sometimes|string|max:20',
                 'email' => 'sometimes|email|max:255',
                 'base_price' => 'sometimes|required|numeric|min:0',
-                'currency' => 'sometimes|required|string|size:3',
+
                 'amenities' => 'sometimes|array',
                 'amenities.*' => 'string|max:100',
                 'images' => 'sometimes|array',
@@ -210,6 +219,9 @@ class HotelController extends Controller
             }
             if ($request->max_rating) {
                 $query->where('rating', '<=', $request->max_rating);
+            }
+            if ($request->filled('rating')) {
+                $query->where('rating', '>=', (float) $request->rating);
             }
             // Price range filter
             if ($request->min_price) {

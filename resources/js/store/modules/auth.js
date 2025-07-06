@@ -1,18 +1,27 @@
 import { defineStore } from "pinia";
 import axios from "axios";
-// Set up axios defaults - ADJUST THESE TO MATCH YOUR API ENDPOINTS
-axios.defaults.baseURL = "http://localhost:8000/api";
+
+axios.defaults.baseURL = "http://127.0.0.1:8000";
 axios.defaults.withCredentials = true;
 
 export const useAuthStore = defineStore("auth", {
-    state: () => ({
-        user: null,
-        token: localStorage.getItem("token") || null,
-        loading: false,
-        errors: {},
-    }),
+    state: () => {
+        const token = localStorage.getItem("token") || null;
+        const user = JSON.parse(localStorage.getItem("user")) || null;
+        // Initialize axios header if token exists (fixes page refresh issue)
+        if (token) {
+            axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+        }
+        return {
+            user,
+            token,
+            loading: false,
+            errors: {},
+        };
+    },
     getters: {
-        isAuthrnticated: (state) => !!state.token,
+        isAuthenticated: (state) => !!state.token,
+        userId: (state) => state.user?.id || null,
     },
     actions: {
         setToken(token) {
@@ -20,42 +29,48 @@ export const useAuthStore = defineStore("auth", {
             localStorage.setItem("token", token);
             axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
         },
-
+        setUser(user){
+            this.user=user;
+            localStorage.setItem("user", JSON.stringify(user));
+        },
         ClearAuth() {
             this.user = null;
             this.token = null;
             localStorage.removeItem("token");
+             localStorage.removeItem("user"); 
             delete axios.defaults.headers.common["Authorization"];
         },
 
         //register
         async register(userData) {
-            try {
-                this.loading = true;
+             this.loading = true;
                 this.errors = {};
-                const response = await axios.post("/api/register", userData,{
-                    withCredentials: false
-                });
+            try {
+                const response = await axios.post("api/register", userData);
                 this.setToken(response.data.token);
+                 this.setUser(response.data.user); 
                 this.user = response.data.user;
                 return response.data;
             } catch (error) {
-                this.errors = error.response?.data?.errors || {};
+                this.errors = error.response?.data?.error || {};
                 throw error;
             } finally {
                 this.loading = false;
             }
         },
         async login(credentials) {
-            try {
+                
+                try {
                 this.loading=true
-                this.erroe={}
-                const response=await axios.post("/login",credentials)
+                this.errors={}
+                
+                const response=await axios.post("api/login",credentials)
                 this.setToken(response.data.token)
+                 this.setUser(response.data.user); 
                 this.user=response.data.user;
                 return response.data;
             } catch (error) {
-                this.errors = error.response?.data?.errors || {};
+                this.errors = error.response?.data?.message || {};
                 throw error;
             } finally {
                 this.loading = false;
@@ -63,12 +78,24 @@ export const useAuthStore = defineStore("auth", {
         },
         async logout(){
             try{
-                await axios.post('/logout')
+                await axios.post('api/logout')
             }catch(error){
                 console.error("Logout failed:", error);
             }finally {
                 this.ClearAuth();
             }
+        },
+        async fetchUser(){
+            try {
+                if(!this.token) return null;
+                const response = await axios.get('api/user');
+                this.setUser(response.data);
+                return response.data
+            } catch (error) {
+                console.error("Failed to fetch user:", error);
+                
+            }
         }
+
     },
 });

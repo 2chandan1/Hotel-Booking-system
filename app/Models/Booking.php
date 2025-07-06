@@ -29,7 +29,7 @@ class Booking extends Model
         'created_at',
         'updated_at'
     ];
-     /**
+    /**
      * The attributes that should be cast.
      *
      * @var array<string, string>
@@ -44,13 +44,9 @@ class Booking extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime'
     ];
-    // protected $appends = [
-    //     'duration_text',
-    //     'is_upcoming',
-    //     'is_active'
-    // ];
- protected $dates = ['created_at', 'updated_at'];
-    public function hotel(){
+    protected $dates = ['created_at', 'updated_at'];
+    public function hotel()
+    {
         return $this->belongsTo(Hotel::class, 'hotel_id');
     }
     /**
@@ -68,4 +64,3 @@ class Booking extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 }
-

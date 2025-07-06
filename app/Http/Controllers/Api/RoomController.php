@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use Exception;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Log;
+
 class RoomController extends Controller
 {
     public function index(Request $request): JsonResponse
@@ -64,28 +65,27 @@ class RoomController extends Controller
                         });
                 });
             }
-                $query->with(['hotel:_id,name,location']);
-                // Sorting
-                $sortBy = $request->get('sort_by', 'room_number');
-                $sortOrder = $request->get('sort_order', 'asc');
-                $query->orderBy($sortBy, $sortOrder);
-                // Pagination
-                $perPage = $request->get('per_page', 15);
-                $rooms = $query->paginate($perPage);
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Rooms retrieved successfully',
-                    'data' => $rooms->items(),
-                    'pagination' => [
-                        'current_page' => $rooms->currentPage(),
-                        'per_page' => $rooms->perPage(),
-                        'total' => $rooms->total(),
-                        'last_page' => $rooms->lastPage(),
-                        'from' => $rooms->firstItem(),
-                        'to' => $rooms->lastItem(),
-                    ]
-                ], 200);
-            
+            $query->with(['hotel:_id,name,location']);
+            // Sorting
+            $sortBy = $request->get('sort_by', 'room_number');
+            $sortOrder = $request->get('sort_order', 'asc');
+            $query->orderBy($sortBy, $sortOrder);
+            // Pagination
+            $perPage = $request->get('per_page', 15);
+            $rooms = $query->paginate($perPage);
+            return response()->json([
+                'success' => true,
+                'message' => 'Rooms retrieved successfully',
+                'data' => $rooms->items(),
+                'pagination' => [
+                    'current_page' => $rooms->currentPage(),
+                    'per_page' => $rooms->perPage(),
+                    'total' => $rooms->total(),
+                    'last_page' => $rooms->lastPage(),
+                    'from' => $rooms->firstItem(),
+                    'to' => $rooms->lastItem(),
+                ]
+            ], 200);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Error retrieving rooms',
@@ -94,15 +94,16 @@ class RoomController extends Controller
         }
     }
 
-    public function store(Request $request){
+    public function store(Request $request)
+    {
         try {
-           $validated = $request->validate([
+            $validated = $request->validate([
                 'hotel_id' => 'required|string',
                 'room_number' => 'required|string|max:20',
                 'room_type' => 'required|string|in:single,double,suite,family,deluxe,presidential',
                 'description' => 'nullable|string|max:1000',
                 'price_per_night' => 'required|numeric|min:0',
-                'currency' => 'required|string|size:3',
+               
                 'capacity' => 'required|integer|min:1|max:20',
                 'beds' => 'required|integer|min:1|max:10',
                 'bed_type' => 'required|string|in:single,double,queen,king,twin,sofa',
@@ -122,17 +123,17 @@ class RoomController extends Controller
                 'special_features.*' => 'string|max:100',
                 'maintenance_status' => 'required|string|in:good,needs_attention,under_maintenance',
             ]);
-             $hotel = Hotel::find($validated['hotel_id']);
+            $hotel = Hotel::find($validated['hotel_id']);
             if (!$hotel) {
                 return response()->json([
                     'message' => 'Hotel not found'
                 ], 404);
             }
-              // Check for duplicate room number in the same hotel
+            // Check for duplicate room number in the same hotel
             $existingRoom = Room::where('hotel_id', $validated['hotel_id'])
-                               ->where('room_number', $validated['room_number'])
-                               ->first();
-            
+                ->where('room_number', $validated['room_number'])
+                ->first();
+
             if ($existingRoom) {
                 return response()->json([
                     'message' => 'Room number already exists for this hotel'
@@ -144,7 +145,7 @@ class RoomController extends Controller
                 'message' => 'Room created successfully',
                 'room' => $room,
             ], 201);
-       } catch (ValidationException $e) {
+        } catch (ValidationException $e) {
             return response()->json([
                 'message' => 'Validation failed',
                 'errors' => $e->errors()
@@ -157,13 +158,13 @@ class RoomController extends Controller
             ], 500);
         }
     }
-     public function show(string $id): JsonResponse
+    public function show(string $id): JsonResponse
     {
         try {
-            $room = Room::with(['hotel:_id,name,location,rating', 'bookings' => function($query) {
+            $room = Room::with(['hotel:_id,name,location,rating', 'bookings' => function ($query) {
                 $query->where('status', 'confirmed')
-                      ->where('check_out_date', '>=', Carbon::now())
-                      ->orderBy('check_in_date');
+                    ->where('check_out_date', '>=', Carbon::now())
+                    ->orderBy('check_in_date');
             }])->find($id);
 
             if (!$room) {
@@ -178,7 +179,6 @@ class RoomController extends Controller
                 'message' => 'Room retrieved successfully',
                 'data' => $room
             ], 200);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -187,7 +187,7 @@ class RoomController extends Controller
             ], 500);
         }
     }
-     public function update(Request $request, string $id): JsonResponse
+    public function update(Request $request, string $id): JsonResponse
     {
         try {
             $room = Room::find($id);
@@ -241,12 +241,12 @@ class RoomController extends Controller
             if (isset($validatedData['room_number']) || isset($validatedData['hotel_id'])) {
                 $hotelId = $validatedData['hotel_id'] ?? $room->hotel_id;
                 $roomNumber = $validatedData['room_number'] ?? $room->room_number;
-                
+
                 $existingRoom = Room::where('hotel_id', $hotelId)
-                                   ->where('room_number', $roomNumber)
-                                   ->where('_id', '!=', $id)
-                                   ->first();
-                
+                    ->where('room_number', $roomNumber)
+                    ->where('_id', '!=', $id)
+                    ->first();
+
                 if ($existingRoom) {
                     return response()->json([
                         'success' => false,
@@ -262,7 +262,6 @@ class RoomController extends Controller
                 'message' => 'Room updated successfully',
                 'data' => $room->load('hotel:_id,name,location')
             ], 200);
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -277,7 +276,7 @@ class RoomController extends Controller
             ], 500);
         }
     }
-     public function destroy(string $id): JsonResponse
+    public function destroy(string $id): JsonResponse
     {
         try {
             $room = Room::find($id);
@@ -308,7 +307,6 @@ class RoomController extends Controller
                 'success' => true,
                 'message' => 'Room deleted successfully'
             ], 200);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -326,27 +324,57 @@ class RoomController extends Controller
             $request->validate([
                 'check_in_date' => 'required|date|after_or_equal:today',
                 'check_out_date' => 'required|date|after:check_in_date',
+                'hotel_id' => 'nullable|string', // Optional hotel_id parameter
             ]);
 
-            $room = Room::find($id);
+            // Build query to find room
+            $query = Room::query();
+
+            // If hotel_id is provided, filter by hotel_id as well
+            if ($request->has('hotel_id')) {
+                $query->where('hotel_id', $request->hotel_id);
+            }
+
+            $room = $query->find($id);
 
             if (!$room) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Room not found'
+                    'message' => 'Room not found' . ($request->has('hotel_id') ? ' for the specified hotel' : '')
                 ], 404);
             }
 
-            $checkIn = Carbon::parse($request->check_in_date);
-            $checkOut = Carbon::parse($request->check_out_date);
+            $checkIn = Carbon::parse($request->query('check_in_date'));
+            $checkOut = Carbon::parse($request->query('check_out_date'));
 
-            $isAvailable = $room->isAvailableForDates($checkIn, $checkOut);
+            // Check if room is available for the given dates
+            $isAvailable = $room->is_available && $room->is_active;
+
+            if ($isAvailable) {
+                // Check for existing bookings that overlap with the requested dates
+                $overlappingBookings = $room->bookings()
+                    ->where(function ($query) use ($checkIn, $checkOut) {
+                        $query->where(function ($q) use ($checkIn, $checkOut) {
+                            // Check if existing booking overlaps with requested dates
+                            $q->whereBetween('check_in_date', [$checkIn, $checkOut->subDay()])
+                                ->orWhereBetween('check_out_date', [$checkIn->addDay(), $checkOut])
+                                ->orWhere(function ($subQ) use ($checkIn, $checkOut) {
+                                    $subQ->where('check_in_date', '<=', $checkIn)
+                                        ->where('check_out_date', '>=', $checkOut);
+                                });
+                        });
+                    })
+                    ->whereIn('status', ['confirmed', 'checked_in']) // Only check confirmed/active bookings
+                    ->exists();
+
+                $isAvailable = !$overlappingBookings;
+            }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Room availability checked successfully',
                 'data' => [
-                    'room_id' => $room->_id,
+                    'room_id' => $room->id, // Changed from _id to id
                     'room_number' => $room->room_number,
                     'is_available' => $isAvailable,
                     'check_in_date' => $checkIn->format('Y-m-d'),
@@ -356,7 +384,6 @@ class RoomController extends Controller
                     'currency' => $room->currency
                 ]
             ], 200);
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -371,12 +398,11 @@ class RoomController extends Controller
             ], 500);
         }
     }
-
     public function statistics(Request $request): JsonResponse
     {
         try {
             $hotelId = $request->get('hotel_id');
-            
+
             $query = Room::query();
             if ($hotelId) {
                 $query->where('hotel_id', $hotelId);
@@ -389,7 +415,7 @@ class RoomController extends Controller
             $maintenanceRooms = $query->where('maintenance_status', 'under_maintenance')->count();
 
             $roomTypeStats = Room::selectRaw('room_type, count(*) as count')
-                ->when($hotelId, function($q) use ($hotelId) {
+                ->when($hotelId, function ($q) use ($hotelId) {
                     return $q->where('hotel_id', $hotelId);
                 })
                 ->groupBy('room_type')
@@ -412,11 +438,102 @@ class RoomController extends Controller
                     'occupancy_rate' => $totalRooms > 0 ? round(($occupiedRooms / $totalRooms) * 100, 2) : 0
                 ]
             ], 200);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error retrieving statistics',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    public function checkAvailabilityByHotel(Request $request, string $hotelId): JsonResponse
+    {
+        try {
+            $request->validate([
+                'check_in_date' => 'required|date|after_or_equal:today',
+                'check_out_date' => 'required|date|after:check_in_date',
+            ]);
+
+            // Check if hotel exists
+            $hotel = Hotel::find($hotelId);
+
+            if (!$hotel) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Hotel not found'
+                ], 404);
+            }
+
+            $checkIn = Carbon::parse($request->query('check_in_date'));
+            $checkOut = Carbon::parse($request->query('check_out_date'));
+
+            // Get all rooms for the hotel that are available and active
+            $rooms = Room::where('hotel_id', $hotelId)
+                ->where('is_available', true)
+                ->where('is_active', true)
+                ->get();
+
+            $availableRooms = [];
+
+            foreach ($rooms as $room) {
+                // Check for existing bookings that overlap with the requested dates
+                $overlappingBookings = $room->bookings()
+                    ->where(function ($query) use ($checkIn, $checkOut) {
+                        $query->where(function ($q) use ($checkIn, $checkOut) {
+                            // Check if existing booking overlaps with requested dates
+                            $q->whereBetween('check_in_date', [$checkIn, $checkOut->copy()->subDay()])
+                                ->orWhereBetween('check_out_date', [$checkIn->copy()->addDay(), $checkOut])
+                                ->orWhere(function ($subQ) use ($checkIn, $checkOut) {
+                                    $subQ->where('check_in_date', '<=', $checkIn)
+                                        ->where('check_out_date', '>=', $checkOut);
+                                });
+                        });
+                    })
+                    ->whereIn('status', ['confirmed', 'checked_in'])
+                    ->exists();
+
+                if (!$overlappingBookings) {
+                    $availableRooms[] = [
+                        'room_id' => $room->id,
+                        'room_number' => $room->room_number,
+                        'room_type' => $room->room_type,
+                        'price_per_night' => $room->price_per_night,
+                        'currency' => $room->currency,
+                        'capacity' => $room->capacity,
+                        'beds' => $room->beds,
+                        'bed_type' => $room->bed_type,
+                        'amenities' => $room->amenities,
+                        'images' => $room->images,
+                        'nights' => $checkIn->diffInDays($checkOut),
+                        'total_amount' => $room->price_per_night * $checkIn->diffInDays($checkOut),
+                    ];
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Room availability checked successfully',
+                'data' => [
+                    'hotel_id' => $hotelId,
+                    'hotel' => $hotel,
+                  
+                    'check_in_date' => $checkIn->format('Y-m-d'),
+                    'check_out_date' => $checkOut->format('Y-m-d'),
+                    'nights' => $checkIn->diffInDays($checkOut),
+                    'available_rooms_count' => count($availableRooms),
+                    'available_rooms' => $availableRooms
+                ]
+            ], 200);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error checking availability',
                 'error' => $e->getMessage()
             ], 500);
         }
